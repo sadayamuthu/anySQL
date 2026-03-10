@@ -1,8 +1,8 @@
 import pytest
 import pandas as pd
 from datetime import datetime, timezone
-from anysql.engine import AnySQL
-from anysql.schema import TABLE_NAMES
+from anysql_sdk.engine import AnySQL
+from anysql_sdk.schema import TABLE_NAMES
 
 
 @pytest.fixture

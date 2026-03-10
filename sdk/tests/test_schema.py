@@ -1,5 +1,5 @@
 import pyarrow as pa
-from anysql.schema import (
+from anysql_sdk.schema import (
     SCHEMAS, TABLE_NAMES,
     LLM_RESPONSES_SCHEMA, EVAL_RESULTS_SCHEMA, PIPELINE_RUNS_SCHEMA,
     AGENT_TOOL_CALLS_SCHEMA, AGENT_TRACE_SCHEMA, RAG_CHUNKS_SCHEMA,

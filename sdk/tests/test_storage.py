@@ -1,5 +1,5 @@
 import pytest
-from anysql.storage import Storage
+from anysql_sdk.storage import Storage
 
 
 @pytest.fixture
@@ -50,7 +50,7 @@ def test_save_empty_list_is_noop(disk_store):
 
 def test_all_table_names_initialized(disk_store):
     # All 6 tables should be created and queryable
-    from anysql.schema import TABLE_NAMES
+    from anysql_sdk.schema import TABLE_NAMES
     for table in TABLE_NAMES:
         assert disk_store.row_count(table) == 0
 

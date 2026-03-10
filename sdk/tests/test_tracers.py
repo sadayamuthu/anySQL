@@ -1,14 +1,14 @@
 import pytest
 from unittest.mock import MagicMock
 from datetime import datetime, timezone
-import anysql
-from anysql.tracers.agent import AgentTracer
-from anysql.tracers.rag import RAGTracer
+import anysql_sdk
+from anysql_sdk.tracers.agent import AgentTracer
+from anysql_sdk.tracers.rag import RAGTracer
 
 
 @pytest.fixture
 def db():
-    return anysql.init(":memory:")
+    return anysql_sdk.init(":memory:")
 
 
 def _now():

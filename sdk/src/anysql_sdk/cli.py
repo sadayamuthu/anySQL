@@ -36,7 +36,7 @@ def main():
         print(result.to_string(index=False))
 
     elif args.command == "stats":
-        from anysql.schema import TABLE_NAMES
+        from anysql_sdk.schema import TABLE_NAMES
         print("\nanySQL table row counts:")
         for table in TABLE_NAMES:
             count = db.count(table)
