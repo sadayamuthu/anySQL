@@ -15,6 +15,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       is_new: ${{ steps.check.outputs.is_new }}
+      version: ${{ steps.check.outputs.version }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -23,9 +24,12 @@ jobs:
         id: check
         run: |
           VERSION=$(python3 -c "
-          import re
+          import re, sys
           content = open('pyproject.toml').read()
           match = re.search(r'^version\s*=\s*\"([^\"]+)\"', content, re.MULTILINE)
+          if not match:
+              print('ERROR: could not find version in pyproject.toml', file=sys.stderr)
+              sys.exit(1)
           print(match.group(1))
           ")
           echo "version=$VERSION"
@@ -36,6 +40,7 @@ jobs:
             echo "Version v$VERSION is new — proceeding with release"
             echo "is_new=true" >> $GITHUB_OUTPUT
           fi
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
 
   build:
     name: Build distribution
@@ -75,25 +80,17 @@ jobs:
 
   release:
     name: Create GitHub Release
-    needs: publish
+    needs: [publish, check-version]
     runs-on: ubuntu-latest
     permissions:
       contents: write
     steps:
       - uses: actions/checkout@v4
       - name: Get version
-        id: version
-        run: |
-          VERSION=$(python3 -c "
-          import re
-          content = open('pyproject.toml').read()
-          match = re.search(r'^version\s*=\s*\"([^\"]+)\"', content, re.MULTILINE)
-          print(match.group(1))
-          ")
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
+        run: echo "Using version ${{ needs.check-version.outputs.version }}"
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v${{ steps.version.outputs.version }}
-          name: anySQL v${{ steps.version.outputs.version }}
+          tag_name: v${{ needs.check-version.outputs.version }}
+          name: anySQL v${{ needs.check-version.outputs.version }}
           generate_release_notes: true
