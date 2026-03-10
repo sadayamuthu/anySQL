@@ -5,8 +5,10 @@ The async request handler calls enqueue() which is non-blocking (< 1μs).
 A stdlib queue bridges the async event loop and the writer thread.
 The writer flushes every 50 rows or every 2 seconds, whichever comes first.
 """
+import logging
 import queue
 import threading
+import time
 import duckdb
 from datetime import datetime, timezone
 from pathlib import Path
@@ -85,6 +87,8 @@ class DBWriter:
         self._stop.set()
         if self._thread:
             self._thread.join(timeout=10)
+            if self._thread.is_alive():
+                logging.getLogger(__name__).warning("anysql-writer thread did not exit within timeout")
             self._thread = None
         if self._conn:
             self._conn.close()
@@ -95,7 +99,6 @@ class DBWriter:
         self._queue.put_nowait((response_record, context_record))
 
     def _loop(self) -> None:
-        import time
         batch = []
         last_flush = time.monotonic()
 
@@ -116,7 +119,11 @@ class DBWriter:
                 len(batch) >= self.BATCH_SIZE
                 or time.monotonic() - last_flush >= self.FLUSH_INTERVAL_S
             ):
-                self._flush(batch)
+                try:
+                    self._flush(batch)
+                except Exception as exc:
+                    logging.getLogger(__name__).error("DBWriter flush failed: %s", exc, exc_info=True)
+                    # drop batch and continue — data loss is preferable to silent death
                 batch = []
                 last_flush = time.monotonic()
 
@@ -127,7 +134,10 @@ class DBWriter:
             except queue.Empty:
                 break
         if batch:
-            self._flush(batch)
+            try:
+                self._flush(batch)
+            except Exception as exc:
+                logging.getLogger(__name__).error("DBWriter flush failed: %s", exc, exc_info=True)
 
     def _flush(self, batch: list) -> None:
         now = datetime.now(timezone.utc)
