@@ -57,12 +57,18 @@ jobs:
           import sys, re
           content = sys.stdin.read()
           match = re.search(r'^version\s*=\s*\"([^\"]+)\"', content, re.MULTILINE)
+          if not match:
+              print('ERROR: could not find version in origin/main:pyproject.toml', file=sys.stderr)
+              sys.exit(1)
           print(match.group(1))
           ")
           PR_VERSION=$(python3 -c "
-          import re
+          import re, sys
           content = open('pyproject.toml').read()
           match = re.search(r'^version\s*=\s*\"([^\"]+)\"', content, re.MULTILINE)
+          if not match:
+              print('ERROR: could not find version in pyproject.toml', file=sys.stderr)
+              sys.exit(1)
           print(match.group(1))
           ")
           echo "main version: $MAIN_VERSION"
