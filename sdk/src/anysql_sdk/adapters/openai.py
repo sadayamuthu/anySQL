@@ -1,13 +1,13 @@
 """
-anysql/adapters/openai.py
+anysql_sdk/adapters/openai.py
 OpenAI transparent proxy wrapper.
 
 Usage:
     from openai import OpenAI
-    import anysql
+    import anysql_sdk
 
-    db = anysql.init("myproject.db")
-    client = anysql.openai(db).wrap(OpenAI())
+    db = anysql_sdk.init("myproject.db")
+    client = anysql_sdk.openai(db).wrap(OpenAI())
 
     # Use exactly as before — all calls auto-logged to llm.responses
     response = client.chat.completions.create(

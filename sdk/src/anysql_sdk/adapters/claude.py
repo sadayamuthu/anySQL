@@ -1,13 +1,13 @@
 """
-anysql/adapters/claude.py
+anysql_sdk/adapters/claude.py
 Anthropic Claude transparent proxy wrapper.
 
 Usage:
     import anthropic
-    import anysql
+    import anysql_sdk
 
-    db = anysql.init("myproject.db")
-    client = anysql.claude(db).wrap(anthropic.Anthropic())
+    db = anysql_sdk.init("myproject.db")
+    client = anysql_sdk.claude(db).wrap(anthropic.Anthropic())
 
     response = client.messages.create(
         model="claude-sonnet-4-6",

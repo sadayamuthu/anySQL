@@ -28,8 +28,8 @@ def main():
         parser.print_help()
         sys.exit(0)
 
-    import anysql
-    db = anysql.init(args.db)
+    import anysql_sdk
+    db = anysql_sdk.init(args.db)
 
     if args.command == "query":
         result = db.query(args.sql)

@@ -2,16 +2,16 @@
 anySQL — SQL analytics for AI systems.
 
 Quick start:
-    import anysql
+    import anysql_sdk
 
-    db = anysql.init("myproject.db")
+    db = anysql_sdk.init("myproject.db")
 
     # Wrap your LLM client (one line change)
-    client = anysql.openai(db).wrap(OpenAI())
-    client = anysql.claude(db).wrap(anthropic.Anthropic())
+    client = anysql_sdk.openai(db).wrap(OpenAI())
+    client = anysql_sdk.claude(db).wrap(anthropic.Anthropic())
 
     # Tag calls for cost attribution
-    with anysql.context_scope(feature="summarizer", segment="enterprise"):
+    with anysql_sdk.context_scope(feature="summarizer", segment="enterprise"):
         response = client.chat.completions.create(...)
 
     # Query with SQL
