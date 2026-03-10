@@ -6,10 +6,10 @@
 
 <p>From vibes to queries.</p>
 
-[![CI](https://img.shields.io/badge/CI-passing-brightgreen?style=flat-square)](https://github.com/karthik/anysql/actions)
+[![CI](https://img.shields.io/badge/CI-passing-brightgreen?style=flat-square)](https://github.com/sadayamuthu/anySQL/actions)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue?style=flat-square)](https://www.python.org/downloads/)
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache%202.0-green?style=flat-square)](LICENSE)
-[![PyPI](https://img.shields.io/badge/PyPI-anysql-orange?style=flat-square)](https://pypi.org/project/anysql/)
+[![PyPI](https://img.shields.io/badge/PyPI-anysql--sdk-orange?style=flat-square)](https://pypi.org/project/anysql-sdk/)
 
 ---
 
@@ -31,12 +31,12 @@ AI engineers debug with `print()` statements, JSON log files, and pre-built dash
 
 ```bash
 # Install
-pip install anysql
+pip install anysql-sdk
 
 # Install with provider support
-pip install "anysql[openai]"
-pip install "anysql[anthropic]"
-pip install "anysql[all]"        # OpenAI + Anthropic + LangChain
+pip install "anysql-sdk[openai]"
+pip install "anysql-sdk[anthropic]"
+pip install "anysql-sdk[all]"        # OpenAI + Anthropic + LangChain
 ```
 
 ```python
@@ -130,16 +130,16 @@ The cross-layer join (UC5) is the killer feature — `query_id` threads RAG retr
 ### From PyPI
 
 ```bash
-pip install anysql
+pip install anysql-sdk
 ```
 
 ### Provider extras
 
 ```bash
-pip install "anysql[openai]"      # + openai>=1.0.0
-pip install "anysql[anthropic]"   # + anthropic>=0.25.0
-pip install "anysql[langchain]"   # + langchain>=0.2.0
-pip install "anysql[all]"         # everything
+pip install "anysql-sdk[openai]"      # + openai>=1.0.0
+pip install "anysql-sdk[anthropic]"   # + anthropic>=0.25.0
+pip install "anysql-sdk[langchain]"   # + langchain>=0.2.0
+pip install "anysql-sdk[all]"         # everything
 ```
 
 ---
@@ -253,7 +253,7 @@ rag.record_eval(
 ## Development
 
 ```bash
-pip install -e ".[dev]"
+pip install -e ".[dev]"  # or: pip install anysql-sdk
 
 pytest tests/ -v           # Run tests
 pytest tests/ --tb=short   # Short failure output
@@ -301,7 +301,7 @@ Apache 2.0
 
 anySQL is managed by [OpenAstra](https://openastra.org) · [anysql.org](https://anysql.org)
 
-[PyPI](https://pypi.org/project/anysql/) · [GitHub](https://github.com/karthik/anysql) · [Docs](https://docs.anysql.org)
+[PyPI](https://pypi.org/project/anysql-sdk/) · [GitHub](https://github.com/sadayamuthu/anySQL) · [Docs](https://docs.anysql.org)
 
 </div>
 
