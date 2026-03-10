@@ -19,7 +19,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          fetch-depth: 0
+          fetch-depth: 0  # required: git tag -l needs full tag history
       - name: Check if version tag exists
         id: check
         run: |
@@ -65,7 +65,7 @@ jobs:
   publish:
     name: Publish to PyPI
     needs: [build, check-version]
-    if: needs.check-version.outputs.is_new == 'true'
+    if: needs.check-version.outputs.is_new == 'true' && needs.build.result == 'success'
     runs-on: ubuntu-latest
     environment: pypi
     permissions:
