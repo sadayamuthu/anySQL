@@ -82,7 +82,7 @@ jobs:
   release:
     name: Create GitHub Release
     needs: [publish, check-version]
-    if: needs.check-version.outputs.is_new == 'true'
+    if: needs.check-version.outputs.is_new == 'true' && needs.publish.result == 'success'
     runs-on: ubuntu-latest
     permissions:
       contents: write
