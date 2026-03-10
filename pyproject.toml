@@ -3,7 +3,7 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "anysql"
+name = "anysql-sdk"
 version = "0.1.0"
 description = "SQL analytics for AI systems — query LLM responses, agent traces, and RAG pipelines like a database"
 readme = "README.md"
