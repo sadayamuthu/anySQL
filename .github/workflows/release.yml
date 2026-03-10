@@ -10,8 +10,37 @@ permissions:
   id-token: write
 
 jobs:
+  check-version:
+    name: Check version is new
+    runs-on: ubuntu-latest
+    outputs:
+      is_new: ${{ steps.check.outputs.is_new }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Check if version tag exists
+        id: check
+        run: |
+          VERSION=$(python3 -c "
+          import re
+          content = open('pyproject.toml').read()
+          match = re.search(r'^version\s*=\s*\"([^\"]+)\"', content, re.MULTILINE)
+          print(match.group(1))
+          ")
+          echo "version=$VERSION"
+          if git tag -l "v$VERSION" | grep -q "v$VERSION"; then
+            echo "Version v$VERSION already tagged — skipping release"
+            echo "is_new=false" >> $GITHUB_OUTPUT
+          else
+            echo "Version v$VERSION is new — proceeding with release"
+            echo "is_new=true" >> $GITHUB_OUTPUT
+          fi
+
   build:
     name: Build distribution
+    needs: check-version
+    if: needs.check-version.outputs.is_new == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
