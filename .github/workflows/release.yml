@@ -32,7 +32,7 @@ jobs:
               sys.exit(1)
           print(match.group(1))
           ")
-          echo "version=$VERSION"
+          echo "Detected version: $VERSION"
           if git tag -l "v$VERSION" | grep -q "v$VERSION"; then
             echo "Version v$VERSION already tagged — skipping release"
             echo "is_new=false" >> $GITHUB_OUTPUT
@@ -81,13 +81,11 @@ jobs:
   release:
     name: Create GitHub Release
     needs: [publish, check-version]
+    if: needs.check-version.outputs.is_new == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v4
-      - name: Get version
-        run: echo "Using version ${{ needs.check-version.outputs.version }}"
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
