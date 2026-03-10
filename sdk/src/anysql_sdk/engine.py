@@ -1,5 +1,5 @@
 """
-anysql/engine.py
+anysql_sdk/engine.py
 DuckDB-powered SQL engine over canonical Arrow tables.
 """
 

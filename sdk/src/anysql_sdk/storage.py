@@ -1,5 +1,5 @@
 """
-anysql/storage.py
+anysql_sdk/storage.py
 SQLite persistence layer — rows stored as JSON blobs.
 Schema enforcement happens at the Arrow layer in engine.py, not here.
 """

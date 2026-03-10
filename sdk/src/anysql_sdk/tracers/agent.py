@@ -1,5 +1,5 @@
 """
-anysql/tracers/agent.py
+anysql_sdk/tracers/agent.py
 Agent tracer for UC4 — Cross-Session Agent Debugging.
 
 LangChain usage:

@@ -1,5 +1,5 @@
 """
-anysql/cli.py
+anysql_sdk/cli.py
 CLI entry point: anysql query "SELECT ..." / anysql stats
 """
 import sys

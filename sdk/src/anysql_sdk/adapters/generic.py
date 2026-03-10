@@ -1,5 +1,5 @@
 """
-anysql/adapters/generic.py
+anysql_sdk/adapters/generic.py
 Generic JSON/dict adapter for any LLM provider.
 """
 import uuid

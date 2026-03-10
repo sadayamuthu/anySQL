@@ -1,5 +1,5 @@
 """
-anysql/tracers/rag.py
+anysql_sdk/tracers/rag.py
 RAG tracer for UC5 — RAG Quality Forensics.
 
 Usage:

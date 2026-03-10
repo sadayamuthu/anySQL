@@ -1,5 +1,5 @@
 """
-anysql/schema.py
+anysql_sdk/schema.py
 Canonical PyArrow schema definitions for all 6 anySQL tables.
 All adapters must normalize their provider-specific outputs to these schemas.
 """

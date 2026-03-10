@@ -1,5 +1,5 @@
 """
-anysql/context.py
+anysql_sdk/context.py
 Cost attribution via Python contextvars.
 Works across sync, async, and threaded code without any setup.
 """
@@ -57,7 +57,7 @@ def context(feature=None, segment=None, session_id=None, pipeline=None, tags=Non
     Decorator — tags all LLM calls within the function for cost attribution.
 
     Usage:
-        @anysql.context(feature="premium_summarizer", segment="enterprise")
+        @anysql_sdk.context(feature="premium_summarizer", segment="enterprise")
         def summarize(text: str) -> str:
             return openai_client.chat.completions.create(...)
     """
@@ -94,7 +94,7 @@ def context_scope(feature=None, segment=None, session_id=None, pipeline=None, ta
     Context manager version — for notebooks and inline code.
 
     Usage:
-        with anysql.context_scope(feature="rag_search", segment="free"):
+        with anysql_sdk.context_scope(feature="rag_search", segment="free"):
             result = my_rag_pipeline(query)
     """
     tokens = _set_context(feature, segment, session_id, pipeline, tags)
