@@ -14,5 +14,4 @@ venv/
 .DS_Store
 *.sqlite
 *.db
-docs/**
 docs/plans/**
