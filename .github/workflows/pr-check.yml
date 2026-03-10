@@ -1,4 +1,3 @@
-# .github/workflows/pr-check.yml
 name: PR Checks
 
 on:
@@ -12,6 +11,9 @@ jobs:
   test:
     name: Tests (Python ${{ matrix.python-version }})
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: sdk
     strategy:
       fail-fast: false
       matrix:
@@ -29,6 +31,9 @@ jobs:
   lint:
     name: Lint
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: sdk
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -37,9 +42,9 @@ jobs:
       - name: Install dependencies
         run: pip install -e ".[dev]"
       - name: Check lint
-        run: ruff check anysql/
+        run: ruff check src/anysql_sdk/
       - name: Check format
-        run: ruff format --check anysql/
+        run: ruff format --check src/anysql_sdk/
 
   version-check:
     name: Version Bump Check
@@ -53,28 +58,28 @@ jobs:
           python-version: "3.12"
       - name: Check version was bumped
         run: |
-          MAIN_VERSION=$(git show origin/main:pyproject.toml | python3 -c "
+          MAIN_VERSION=$(git show origin/main:sdk/pyproject.toml | python3 -c "
           import sys, re
           content = sys.stdin.read()
           match = re.search(r'^version\s*=\s*\"([^\"]+)\"', content, re.MULTILINE)
           if not match:
-              print('ERROR: could not find version in origin/main:pyproject.toml', file=sys.stderr)
+              print('ERROR: could not find version in origin/main:sdk/pyproject.toml', file=sys.stderr)
               sys.exit(1)
           print(match.group(1))
           ")
           PR_VERSION=$(python3 -c "
           import re, sys
-          content = open('pyproject.toml').read()
+          content = open('sdk/pyproject.toml').read()
           match = re.search(r'^version\s*=\s*\"([^\"]+)\"', content, re.MULTILINE)
           if not match:
-              print('ERROR: could not find version in pyproject.toml', file=sys.stderr)
+              print('ERROR: could not find version in sdk/pyproject.toml', file=sys.stderr)
               sys.exit(1)
           print(match.group(1))
           ")
           echo "main version: $MAIN_VERSION"
           echo "PR version:   $PR_VERSION"
           if [ "$MAIN_VERSION" = "$PR_VERSION" ]; then
-            echo "ERROR: Version $PR_VERSION already exists on main — bump the version in pyproject.toml"
+            echo "ERROR: Version $PR_VERSION already exists on main — bump the version in sdk/pyproject.toml"
             exit 1
           fi
           echo "OK: version bumped $MAIN_VERSION → $PR_VERSION"
