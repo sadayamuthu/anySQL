@@ -1,4 +1,3 @@
-import pytest
 from anysql_proxy.extractor import extract_context, get_git_context
 
 

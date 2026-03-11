@@ -45,13 +45,13 @@ _REQUEST_TYPE_KEYWORDS = [
 ]
 
 
-def extract_context(body: dict, ide: str) -> dict:
+def extract_context(body: dict, _ide: str) -> dict:
     """
     Extract developer context from an LLM request body.
 
     Args:
         body: Parsed JSON request body (OpenAI or Anthropic format)
-        ide:  IDE name from detector.detect_ide()
+        _ide: IDE name from detector.detect_ide() (unused, reserved for future use)
 
     Returns:
         dict with keys: file_path, language, request_type,
