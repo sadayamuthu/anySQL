@@ -21,9 +21,7 @@
 
 ## What is anySQL?
 
-anySQL is an open-source SQL analytics engine for AI systems — an [OpenAstra](https://openastra.org) initiative. It lets engineers query LLM responses, agent traces, and RAG pipelines with standard SQL, powered by DuckDB.
-
-AI engineers debug with `print()` statements and pre-built dashboards that show what the tool designer thought you'd want to see. anySQL gives you raw SQL over normalized AI telemetry instead.
+anySQL is an open-source SQL analytics engine for AI systems — an [OpenAstra](https://openastra.org) initiative. It lets engineers query LLM responses, agent traces, and RAG pipelines with standard SQL, powered by DuckDB, instead of pre-built dashboards that only show what the tool designer thought you'd want to see.
 
 ---
 
