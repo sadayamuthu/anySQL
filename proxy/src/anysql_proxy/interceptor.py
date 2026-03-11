@@ -20,9 +20,11 @@ _PROVIDER_BASE_URLS = {
 
 # Cost per 1M tokens in USD (prompt, completion)
 # Update as provider pricing changes.
+# IMPORTANT: more-specific names must come before general prefixes (e.g.
+# "gpt-4o-mini" before "gpt-4o") because calculate_cost uses substring matching.
 _MODEL_COSTS: dict[str, tuple[float, float]] = {
+    "gpt-4o-mini":         (0.15,   0.60),   # must be before gpt-4o
     "gpt-4o":              (5.00,  15.00),
-    "gpt-4o-mini":         (0.15,   0.60),
     "gpt-4-turbo":         (10.00, 30.00),
     "gpt-3.5-turbo":       (0.50,   1.50),
     "claude-opus-4-6":     (15.00, 75.00),
