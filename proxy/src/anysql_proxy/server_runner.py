@@ -14,6 +14,7 @@ def run_server(port: int = 4242, db_path: str = "~/.anysql/ide.duckdb") -> None:
     logging.basicConfig(
         level=logging.DEBUG,
         format="%(asctime)s %(levelname)s %(name)s — %(message)s",
+        force=True,  # override any handlers already set by aiohttp/other libs
     )
     ks = KeyStore()
     api_keys = {

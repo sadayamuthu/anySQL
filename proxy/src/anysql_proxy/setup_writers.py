@@ -43,9 +43,11 @@ def _setup_claude_code() -> None:
 
 
 def _setup_windsurf() -> None:
-    settings_path = Path.home() / ".windsurf" / "settings.json"
+    settings_path = (
+        Path.home() / "Library" / "Application Support" / "Windsurf" / "User" / "settings.json"
+    )
     _update_json(settings_path, {
-        "windsurf.apiBaseUrl": "http://localhost:4242",
+        "openai.apiBase": "http://localhost:4242",
     })
     click.echo("Windsurf configured. Restart Windsurf to apply.")
     click.echo(f"Updated: {settings_path}")

@@ -108,6 +108,7 @@ class RequestHandler:
         path = request.path
         provider = detect_provider(path)
         api_key = self._api_keys.get(provider, "")
+        print(f"[anysql] ← {request.method} {path} provider={provider}", flush=True)
 
         # Inject stream_options so OpenAI includes usage in the final SSE chunk
         if provider == "openai":
