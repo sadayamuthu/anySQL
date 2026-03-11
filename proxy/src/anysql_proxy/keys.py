@@ -4,6 +4,7 @@ Encrypted API key storage.
 Keys are stored in ~/.anysql/keys.toml, encrypted with a machine-local
 key derived from a randomly generated secret stored in ~/.anysql/.secret.
 """
+import logging
 import os
 try:
     import tomllib
@@ -12,6 +13,8 @@ except ImportError:
 import tomli_w
 from pathlib import Path
 from cryptography.fernet import Fernet
+
+_log = logging.getLogger(__name__)
 
 
 _CONFIG_DIR = Path.home() / ".anysql"
@@ -41,6 +44,11 @@ class KeyStore:
         try:
             return self._fernet.decrypt(encrypted.encode()).decode()
         except Exception:
+            _log.warning(
+                "Failed to decrypt %s API key — key file may be corrupted or "
+                ".secret has changed. Re-run: anysql-proxy keys set %s <key>",
+                provider, provider,
+            )
             return None
 
     def _load(self) -> dict:

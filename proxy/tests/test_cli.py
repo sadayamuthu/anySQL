@@ -16,11 +16,11 @@ def test_stop_no_pid_file(tmp_path):
     """stop with no PID file prints helpful message."""
     from unittest.mock import patch
     runner = CliRunner()
-    with patch("anysql_proxy.cli.Path") as MockPath:
-        pid_file = MockPath.home.return_value / ".anysql" / "proxy.pid"
-        pid_file.exists.return_value = False
+    # Redirect Path.home() to tmp_path — no proxy.pid will exist there
+    with patch("anysql_proxy.cli.Path.home", return_value=tmp_path):
         result = runner.invoke(main, ["stop"])
     assert result.exit_code == 0
+    assert "No PID file found" in result.output
 
 
 def test_status_not_running():

@@ -37,12 +37,17 @@ def start(port: int, db: str):
 
 @main.command()
 def stop():
-    """Stop the proxy (sends SIGTERM to the stored PID)."""
+    """Stop the proxy (sends SIGTERM to the PID from proxy.pid)."""
     pid_file = Path.home() / ".anysql" / "proxy.pid"
     if not pid_file.exists():
         click.echo("No PID file found — proxy may not be running.")
         return
-    pid = int(pid_file.read_text().strip())
+    try:
+        pid = int(pid_file.read_text().strip())
+    except ValueError:
+        pid_file.unlink(missing_ok=True)
+        click.echo("PID file was corrupted (removed).")
+        return
     try:
         os.kill(pid, signal.SIGTERM)
         pid_file.unlink()
@@ -55,11 +60,12 @@ def stop():
 @main.command()
 def status():
     """Check if the proxy is running."""
+    import urllib.error
     import urllib.request
     try:
         urllib.request.urlopen("http://localhost:4242/v1/models", timeout=2)
         click.echo("anySQL Proxy  running  http://localhost:4242")
-    except Exception:
+    except OSError:
         click.echo("anySQL Proxy  not running")
 
 

@@ -39,7 +39,7 @@ def _setup_claude_code() -> None:
         rc_file.write_text(content + f"\n{line}\n")
     click.echo(f"Added to {rc_file}:")
     click.echo(f"  {line}")
-    click.echo("Run: source ~/.zshrc  (or restart terminal)")
+    click.echo(f"Run: source {rc_file}  (or restart terminal)")
 
 
 def _setup_windsurf() -> None:
@@ -54,7 +54,16 @@ def _setup_windsurf() -> None:
 def _setup_vscode_continue() -> None:
     config_path = Path.home() / ".continue" / "config.json"
     config_path.parent.mkdir(parents=True, exist_ok=True)
-    config = json.loads(config_path.read_text()) if config_path.exists() else {}
+    if config_path.exists():
+        try:
+            config = json.loads(config_path.read_text())
+        except json.JSONDecodeError as exc:
+            raise click.ClickException(
+                f"Could not parse {config_path}: {exc}\n"
+                "Edit the file manually to fix the JSON syntax, then re-run setup."
+            ) from exc
+    else:
+        config = {}
     config.setdefault("models", [])
     if not any(m.get("apiBase") == "http://localhost:4242" for m in config["models"]):
         config["models"].append({
@@ -71,7 +80,16 @@ def _setup_vscode_continue() -> None:
 def _setup_zed() -> None:
     settings_path = Path.home() / ".config" / "zed" / "settings.json"
     settings_path.parent.mkdir(parents=True, exist_ok=True)
-    config = json.loads(settings_path.read_text()) if settings_path.exists() else {}
+    if settings_path.exists():
+        try:
+            config = json.loads(settings_path.read_text())
+        except json.JSONDecodeError as exc:
+            raise click.ClickException(
+                f"Could not parse {settings_path}: {exc}\n"
+                "Edit the file manually to fix the JSON syntax, then re-run setup."
+            ) from exc
+    else:
+        config = {}
     assistant = config.setdefault("assistant", {})
     assistant["version"] = "2"
     assistant["openai_api_url"] = "http://localhost:4242"
@@ -82,7 +100,16 @@ def _setup_zed() -> None:
 
 def _update_json(path: Path, updates: dict) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    config = json.loads(path.read_text()) if path.exists() else {}
+    if path.exists():
+        try:
+            config = json.loads(path.read_text())
+        except json.JSONDecodeError as exc:
+            raise click.ClickException(
+                f"Could not parse {path}: {exc}\n"
+                "Edit the file manually to fix the JSON syntax, then re-run setup."
+            ) from exc
+    else:
+        config = {}
     config.update(updates)
     path.write_text(json.dumps(config, indent=2))
 
