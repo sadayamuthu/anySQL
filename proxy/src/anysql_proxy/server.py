@@ -7,11 +7,11 @@ Routes:
   GET  /v1/models            — Model list (IDE verification requests)
   OPTIONS /*                 — CORS preflight (required for Cursor/Electron)
 """
+import asyncio
 import json
 import time
 import uuid
 from datetime import datetime, timezone
-from typing import Optional
 
 import aiohttp
 from aiohttp import web
@@ -19,6 +19,7 @@ from aiohttp import web
 from .detector import detect_ide
 from .extractor import extract_context, get_git_context
 from .interceptor import (
+    UpstreamMeta,
     detect_provider,
     forward_and_stream,
     parse_token_counts,
@@ -68,7 +69,7 @@ class RequestHandler:
     def __init__(self, writer: DBWriter, api_keys: dict):
         self._writer = writer
         self._api_keys = api_keys
-        self._session: Optional[aiohttp.ClientSession] = None  # shared aiohttp session
+        self._session: aiohttp.ClientSession | None = None  # shared aiohttp session
 
     async def _get_session(self) -> aiohttp.ClientSession:
         """Return shared aiohttp ClientSession, creating it on first use."""
@@ -105,29 +106,49 @@ class RequestHandler:
 
         ide = detect_ide(headers)
         ctx = extract_context(body, ide)
-        git_ctx = get_git_context(ctx.get("file_path"))
+        git_ctx = await asyncio.to_thread(get_git_context, ctx.get("file_path"))
 
         response_id = str(uuid.uuid4())
         context_id = str(uuid.uuid4())
         t0 = time.monotonic()
 
         # Stream response back to IDE
-        stream_response = web.StreamResponse(headers=_CORS_HEADERS)
-        await stream_response.prepare(request)
-
         session = await self._get_session()
+        stream_response: web.StreamResponse | None = None
         chunks = []
-        async for chunk in forward_and_stream(
-            method=request.method,
-            path=path,
-            headers=headers,
-            body=body_bytes,
-            provider=provider,
-            api_key=api_key,
-            session=session,
-        ):
-            await stream_response.write(chunk)
-            chunks.append(chunk)
+        try:
+            async for item in forward_and_stream(
+                method=request.method,
+                path=path,
+                headers=headers,
+                body=body_bytes,
+                provider=provider,
+                api_key=api_key,
+                session=session,
+            ):
+                if isinstance(item, UpstreamMeta):
+                    stream_response = web.StreamResponse(
+                        status=item.status, headers=_CORS_HEADERS
+                    )
+                    stream_response.content_type = item.content_type
+                    await stream_response.prepare(request)
+                else:
+                    await stream_response.write(item)
+                    chunks.append(item)
+        except Exception as exc:
+            if stream_response is None:
+                # prepare was never called; send a minimal error response
+                stream_response = web.StreamResponse(status=502, headers=_CORS_HEADERS)
+                stream_response.content_type = "text/plain"
+                await stream_response.prepare(request)
+            error_msg = f"data: {{\"error\": \"{type(exc).__name__}: {exc}\"}}\n\n"
+            await stream_response.write(error_msg.encode())
+
+        if stream_response is None:
+            # forward_and_stream yielded nothing at all
+            stream_response = web.StreamResponse(status=502, headers=_CORS_HEADERS)
+            stream_response.content_type = "text/plain"
+            await stream_response.prepare(request)
 
         await stream_response.write_eof()
         latency_ms = int((time.monotonic() - t0) * 1000)

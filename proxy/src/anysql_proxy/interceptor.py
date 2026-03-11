@@ -9,9 +9,17 @@ The interceptor:
 
 Auth headers are never logged.
 """
-from typing import AsyncIterator
+from dataclasses import dataclass
+from typing import AsyncIterator, Union
 
 import aiohttp
+
+
+@dataclass
+class UpstreamMeta:
+    """Upstream HTTP metadata yielded as the first item from forward_and_stream."""
+    status: int
+    content_type: str
 
 _PROVIDER_BASE_URLS = {
     "openai":    "https://api.openai.com",
@@ -86,11 +94,14 @@ async def forward_and_stream(
     provider: str,
     api_key: str,
     session: "aiohttp.ClientSession | None" = None,
-) -> AsyncIterator[bytes]:
+) -> AsyncIterator[Union[UpstreamMeta, bytes]]:
     """
     Forward request to provider and yield response chunks as they arrive.
     This is an async generator — the caller iterates it to stream chunks
     back to the IDE while collecting the full response for logging.
+
+    Yields UpstreamMeta as the first item (status + content-type), then
+    bytes chunks for the response body.
 
     If session is provided, it is used as-is and not closed after the request.
     If session is None, a new ClientSession is created and closed when done.
@@ -106,6 +117,10 @@ async def forward_and_stream(
 
     try:
         async with session.request(method, url, headers=forward_headers, data=body) as resp:
+            yield UpstreamMeta(
+                status=resp.status,
+                content_type=resp.headers.get("Content-Type", "application/octet-stream"),
+            )
             async for chunk in resp.content.iter_any():
                 yield chunk
     finally:
