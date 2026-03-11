@@ -1,0 +1,62 @@
+name: Check Version Bump
+
+on:
+  pull_request:
+    branches: [main]
+
+jobs:
+  filter:
+    runs-on: ubuntu-latest
+    outputs:
+      sdk:   ${{ steps.filter.outputs.sdk }}
+      proxy: ${{ steps.filter.outputs.proxy }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            sdk:
+              - 'sdk/**'
+            proxy:
+              - 'proxy/**'
+
+  check-sdk:
+    needs: filter
+    if: needs.filter.outputs.sdk == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Verify SDK version bumped
+        run: |
+          CURRENT=$(python -c "import tomllib; print(tomllib.load(open('sdk/pyproject.toml','rb'))['project']['version'])")
+          git checkout origin/main -- sdk/pyproject.toml
+          MAIN=$(python -c "import tomllib; print(tomllib.load(open('sdk/pyproject.toml','rb'))['project']['version'])")
+          git checkout HEAD -- sdk/pyproject.toml
+          python -c "
+          from packaging.version import Version
+          assert Version('$CURRENT') > Version('$MAIN'), f'Version {CURRENT!r} must be > {MAIN!r}'
+          print(f'Version OK: {MAIN} -> {CURRENT}')
+          "
+
+  check-proxy:
+    needs: filter
+    if: needs.filter.outputs.proxy == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Verify proxy version bumped
+        run: |
+          CURRENT=$(python -c "import tomllib; print(tomllib.load(open('proxy/pyproject.toml','rb'))['project']['version'])")
+          git checkout origin/main -- proxy/pyproject.toml
+          MAIN=$(python -c "import tomllib; print(tomllib.load(open('proxy/pyproject.toml','rb'))['project']['version'])")
+          git checkout HEAD -- proxy/pyproject.toml
+          python -c "
+          from packaging.version import Version
+          assert Version('$CURRENT') > Version('$MAIN'), f'Version {CURRENT!r} must be > {MAIN!r}'
+          print(f'Version OK: {MAIN} -> {CURRENT}')
+          "
