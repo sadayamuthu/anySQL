@@ -85,22 +85,32 @@ async def forward_and_stream(
     body: bytes,
     provider: str,
     api_key: str,
+    session: "aiohttp.ClientSession | None" = None,
 ) -> AsyncIterator[bytes]:
     """
     Forward request to provider and yield response chunks as they arrive.
     This is an async generator — the caller iterates it to stream chunks
     back to the IDE while collecting the full response for logging.
+
+    If session is provided, it is used as-is and not closed after the request.
+    If session is None, a new ClientSession is created and closed when done.
     """
     base_url = _PROVIDER_BASE_URLS[provider]
     url = f"{base_url}{path}"
     forward_headers = build_forward_headers(headers, api_key=api_key, provider=provider)
 
-    async with aiohttp.ClientSession() as session:
-        async with session.request(
-            method, url, headers=forward_headers, data=body
-        ) as resp:
+    _own_session = session is None
+    if _own_session:
+        import aiohttp as _aiohttp
+        session = _aiohttp.ClientSession()
+
+    try:
+        async with session.request(method, url, headers=forward_headers, data=body) as resp:
             async for chunk in resp.content.iter_any():
                 yield chunk
+    finally:
+        if _own_session:
+            await session.close()
 
 
 def parse_token_counts(body: dict, provider: str) -> tuple[int, int]:
