@@ -78,7 +78,7 @@ One ASCII block showing how SDK + proxy + server + UI relate to each other.
 
 **Content:** Same as current root README, with these fixes:
 - Title → `anysql-sdk`
-- `import anysql` → `import anysql_sdk` throughout Quick Start
+- `import anysql` → `import anysql_sdk` in **all code blocks** (Quick Start, Adapter Usage — OpenAI, Anthropic, Agent Tracing, RAG Tracing examples)
 - Repository Structure block updated to monorepo layout (`sdk/src/anysql_sdk/`, not old flat `anysql/`)
 - Development commands: `cd sdk && pip install -e ".[dev]"`, `ruff check src/anysql_sdk/`
 - Footer: "anySQL is an [OpenAstra](https://openastra.org) initiative"
@@ -165,6 +165,8 @@ GROUP BY day ORDER BY day;
 
 | File | Action |
 |------|--------|
-| `README.md` | Rewrite to monorepo index |
-| `sdk/README.md` | Fix stale imports/paths, update footer |
+| `README.md` | Rewrite to monorepo index; update footer from "managed by OpenAstra" → "an OpenAstra initiative" |
+| `sdk/README.md` | Fix stale imports (all code blocks), fix paths, update footer from "managed by OpenAstra" → "an OpenAstra initiative" |
 | `proxy/README.md` | Full write from placeholder |
+
+**"OpenAstra" nav link** in the root README should link to `https://openastra.org` (external URL, not an anchor).
