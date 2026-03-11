@@ -56,6 +56,11 @@ def create_app(writer: DBWriter, api_keys: dict) -> web.Application:
     app.router.add_get("/v1/models", handler.handle_models)
     app.router.add_post("/v1/chat/completions", handler.handle_llm)
     app.router.add_post("/v1/messages", handler.handle_llm)
+
+    async def on_cleanup(_app: web.Application) -> None:
+        await handler.close()
+
+    app.on_cleanup.append(on_cleanup)
     return app
 
 
