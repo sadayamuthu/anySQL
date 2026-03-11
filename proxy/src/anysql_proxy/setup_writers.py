@@ -70,12 +70,12 @@ def _setup_vscode_continue() -> None:
 
 def _setup_zed() -> None:
     settings_path = Path.home() / ".config" / "zed" / "settings.json"
-    _update_json(settings_path, {
-        "assistant": {
-            "version": "2",
-            "openai_api_url": "http://localhost:4242",
-        }
-    })
+    settings_path.parent.mkdir(parents=True, exist_ok=True)
+    config = json.loads(settings_path.read_text()) if settings_path.exists() else {}
+    assistant = config.setdefault("assistant", {})
+    assistant["version"] = "2"
+    assistant["openai_api_url"] = "http://localhost:4242"
+    settings_path.write_text(json.dumps(config, indent=2))
     click.echo("Zed configured. Restart Zed to apply.")
     click.echo(f"Updated: {settings_path}")
 
