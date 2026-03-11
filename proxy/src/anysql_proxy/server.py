@@ -9,12 +9,15 @@ Routes:
 """
 import asyncio
 import json
+import logging
 import time
 import uuid
 from datetime import datetime, timezone
 
 import aiohttp
 from aiohttp import web
+
+log = logging.getLogger(__name__)
 
 from .detector import detect_ide
 from .extractor import extract_context, get_git_context
@@ -23,6 +26,8 @@ from .interceptor import (
     detect_provider,
     forward_and_stream,
     parse_token_counts,
+    parse_openai_sse,
+    inject_stream_options,
     calculate_cost,
 )
 from .writer import DBWriter
@@ -104,6 +109,10 @@ class RequestHandler:
         provider = detect_provider(path)
         api_key = self._api_keys.get(provider, "")
 
+        # Inject stream_options so OpenAI includes usage in the final SSE chunk
+        if provider == "openai":
+            body_bytes = inject_stream_options(body_bytes)
+
         ide = detect_ide(headers)
         ctx = extract_context(body, ide)
         git_ctx = await asyncio.to_thread(get_git_context, ctx.get("file_path"))
@@ -155,17 +164,29 @@ class RequestHandler:
 
         # Parse response for token counts (best-effort)
         full_body = b"".join(chunks)
+        model_from_stream: str | None = None
         try:
             resp_json = json.loads(full_body)
         except Exception:
             resp_json = {}
 
+        if not resp_json and provider == "openai":
+            # Streaming SSE — parse line by line
+            sse_usage, model_from_stream = parse_openai_sse(full_body)
+            if sse_usage:
+                resp_json = {"usage": sse_usage}
+                log.debug("SSE usage parsed: %s model=%s", sse_usage, model_from_stream)
+
         prompt_tokens, completion_tokens = parse_token_counts(resp_json, provider)
-        model = resp_json.get("model") or body.get("model", "unknown")
+        model = model_from_stream or resp_json.get("model") or body.get("model", "unknown")
         cost_usd = calculate_cost(model, prompt_tokens, completion_tokens)
         now = datetime.now(timezone.utc)
 
         # Non-blocking write to DuckDB
+        log.info(
+            "handle_llm enqueue provider=%s model=%s prompt_tokens=%d completion_tokens=%d latency_ms=%d",
+            provider, model, prompt_tokens, completion_tokens, latency_ms,
+        )
         self._writer.enqueue(
             response_record={
                 "response_id":       response_id,

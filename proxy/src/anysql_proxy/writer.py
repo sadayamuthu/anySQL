@@ -50,6 +50,9 @@ INSERT INTO ide_context VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 """
 
 
+log = logging.getLogger(__name__)
+
+
 class DBWriter:
     """
     Single-writer, background-thread DuckDB writer.
@@ -66,6 +69,7 @@ class DBWriter:
 
     def __init__(self, db_path: str):
         self._db_path = str(Path(db_path).expanduser())
+        self._parquet_dir = str(Path(self._db_path).parent)
         self._queue: queue.Queue = queue.Queue()
         self._stop = threading.Event()
         self._thread: threading.Thread | None = None
@@ -77,6 +81,7 @@ class DBWriter:
         self._conn = duckdb.connect(self._db_path, read_only=False)
         self._conn.execute(_SCHEMA)
         self._conn.commit()
+        log.info("DBWriter started — db=%s", self._db_path)
         self._thread = threading.Thread(target=self._loop, daemon=True, name="anysql-writer")
         self._thread.start()
 
@@ -96,6 +101,13 @@ class DBWriter:
 
     def enqueue(self, response_record: dict, context_record: dict) -> None:
         """Non-blocking. Call from async request handler."""
+        log.debug(
+            "DBWriter.enqueue response_id=%s model=%s prompt_tokens=%s completion_tokens=%s",
+            response_record.get("response_id"),
+            response_record.get("model"),
+            response_record.get("prompt_tokens"),
+            response_record.get("completion_tokens"),
+        )
         self._queue.put_nowait((response_record, context_record))
 
     def _loop(self) -> None:
@@ -140,6 +152,7 @@ class DBWriter:
                 logging.getLogger(__name__).error("DBWriter flush failed: %s", exc, exc_info=True)
 
     def _flush(self, batch: list) -> None:
+        log.info("DBWriter._flush flushing %d record(s)", len(batch))
         now = datetime.now(timezone.utc)
         for response_record, context_record in batch:
             r = response_record
@@ -169,3 +182,14 @@ class DBWriter:
                 c.get("created_at", now),
             ])
         self._conn.commit()
+        log.info("DBWriter._flush committed %d record(s) to %s", len(batch), self._db_path)
+        # Export Parquet snapshots so DBeaver / other tools can read without
+        # holding the DuckDB write lock.
+        try:
+            rp = f"{self._parquet_dir}/llm_responses.parquet"
+            cp = f"{self._parquet_dir}/ide_context.parquet"
+            self._conn.execute(f"COPY llm_responses TO '{rp}' (FORMAT PARQUET)")
+            self._conn.execute(f"COPY ide_context TO '{cp}' (FORMAT PARQUET)")
+            log.debug("Parquet snapshots written to %s", self._parquet_dir)
+        except Exception as exc:
+            log.warning("Parquet export failed (non-fatal): %s", exc)

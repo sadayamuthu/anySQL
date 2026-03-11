@@ -1,4 +1,5 @@
 """Thin wrapper to start aiohttp server with DBWriter."""
+import logging
 import os
 from pathlib import Path
 from aiohttp import web
@@ -10,6 +11,10 @@ _PID_FILE = Path.home() / ".anysql" / "proxy.pid"
 
 
 def run_server(port: int = 4242, db_path: str = "~/.anysql/ide.duckdb") -> None:
+    logging.basicConfig(
+        level=logging.DEBUG,
+        format="%(asctime)s %(levelname)s %(name)s — %(message)s",
+    )
     ks = KeyStore()
     api_keys = {
         "openai":    ks.get("openai") or "",

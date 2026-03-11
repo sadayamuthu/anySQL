@@ -140,3 +140,48 @@ def parse_token_counts(body: dict, provider: str) -> tuple[int, int]:
         usage = body.get("usage", {})
         return usage.get("input_tokens", 0), usage.get("output_tokens", 0)
     return 0, 0
+
+
+def parse_openai_sse(full_body: bytes) -> tuple[dict, str | None]:
+    """
+    Parse an OpenAI SSE stream (text/event-stream) and return
+    (usage_dict, model_name). usage_dict is empty if no usage chunk found.
+
+    OpenAI only sends usage in the stream when stream_options.include_usage=true
+    is set in the request — see inject_stream_options().
+    """
+    import json as _json
+    usage: dict = {}
+    model: str | None = None
+    for line in full_body.decode(errors="replace").splitlines():
+        if not line.startswith("data: "):
+            continue
+        data = line[6:].strip()
+        if data == "[DONE]":
+            continue
+        try:
+            chunk = _json.loads(data)
+            if not model and chunk.get("model"):
+                model = chunk["model"]
+            if chunk.get("usage"):
+                usage = chunk["usage"]
+        except Exception:
+            pass
+    return usage, model
+
+
+def inject_stream_options(body_bytes: bytes) -> bytes:
+    """
+    For OpenAI streaming requests, inject stream_options.include_usage=true
+    so that the final SSE chunk carries token counts.
+    Returns the (possibly modified) body bytes.
+    """
+    import json as _json
+    try:
+        body = _json.loads(body_bytes)
+        if body.get("stream"):
+            body.setdefault("stream_options", {})["include_usage"] = True
+            return _json.dumps(body).encode()
+    except Exception:
+        pass
+    return body_bytes
