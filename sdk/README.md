@@ -1,6 +1,6 @@
 <div align="center">
 
-# anySQL
+# anysql-sdk
 
 <h3>SQL Analytics for AI Systems</h3>
 
@@ -13,15 +13,15 @@
 
 ---
 
-[Quick Start](#quick-start) · [How It Works](#how-it-works) · [5 Use Cases](#the-5-use-cases) · [Installation](#installation) · [CLI Usage](#cli-usage) · [Examples](#examples)
+[Quick Start](#quick-start) · [How It Works](#how-it-works) · [Use Cases](#the-5-use-cases) · [Installation](#installation) · [CLI](#cli-usage) · [Examples](#examples)
 
 </div>
 
 ---
 
-## What is anySQL?
+## What is anysql-sdk?
 
-anySQL is an open-source SQL analytics engine for AI systems. It lets engineers query LLM responses, agent traces, and RAG pipelines with standard SQL — powered by DuckDB in-memory, persisted to SQLite, with zero configuration.
+anysql-sdk is an open-source SQL analytics engine for AI systems. It lets engineers query LLM responses, agent traces, and RAG pipelines with standard SQL — powered by DuckDB in-memory, persisted to SQLite, with zero configuration.
 
 AI engineers debug with `print()` statements, JSON log files, and pre-built dashboards that show what the tool designer thought you'd want to see. What's missing is raw SQL over normalized AI telemetry data — specifically the cross-layer JOIN that lets you ask whether your RAG pipeline is failing at retrieval or generation.
 
@@ -30,31 +30,34 @@ AI engineers debug with `print()` statements, JSON log files, and pre-built dash
 ## Quick Start
 
 ```bash
-# Install
 pip install anysql-sdk
 
-# Install with provider support
+# With provider support
 pip install "anysql-sdk[openai]"
 pip install "anysql-sdk[anthropic]"
 pip install "anysql-sdk[all]"        # OpenAI + Anthropic + LangChain
 ```
 
 ```python
-import anysql
+import anysql_sdk
+import openai
+import anthropic
 
 # Initialize (in-memory by default, or pass a file path for persistence)
-db = anysql.init()
+db = anysql_sdk.init()
 
 # Wrap your OpenAI client — all calls are auto-logged
-client = anysql.openai(openai_client)
+client = anysql_sdk.openai(db).wrap(openai.OpenAI())
 
 # Wrap your Anthropic client
-client = anysql.claude(anthropic_client)
+client = anysql_sdk.claude(db).wrap(anthropic.Anthropic())
 
 # Tag pipeline runs for cost attribution
-@anysql.context(feature="search", version="v2")
-def run_search(query):
-    ...
+with anysql_sdk.context_scope(feature="search", version="v2"):
+    response = client.chat.completions.create(
+        model="gpt-4o",
+        messages=[{"role": "user", "content": "Summarize this article..."}]
+    )
 
 # Query anything with standard SQL
 df = db.query("SELECT model, AVG(cost_usd) FROM llm_responses GROUP BY model")
@@ -74,13 +77,13 @@ df = db.rag_failure_modes()      # UC5: RAG forensics
 ```
 User Code
     │
-    ├── @anysql.context(feature="x")     ← Python contextvars, sync+async safe
-    ├── OpenAI/Claude wrapped client      ← transparent proxy, one-line swap
-    ├── AgentTracer (LangChain callback)  ← manual or callback-based
-    └── RAGTracer.after_retrieval()       ← auto-detects LangChain/LlamaIndex/dict
+    ├── anysql_sdk.context_scope(feature="x")  ← Python contextvars, sync+async safe
+    ├── OpenAI/Claude wrapped client            ← transparent proxy, one-line swap
+    ├── AgentTracer (LangChain callback)        ← manual or callback-based
+    └── RAGTracer.after_retrieval()             ← auto-detects LangChain/LlamaIndex/dict
               │
               ▼ insert()
-    AnySQL engine
+    anysql-sdk engine
     ├── in-memory buffer (dict lists per table)
     ├── SQLite persistence (JSON blobs, cross-session)
     └── DuckDB (Arrow views, SQL at query time)
@@ -148,20 +151,20 @@ pip install "anysql-sdk[all]"         # everything
 
 ```bash
 # Run a SQL query against a persisted database
-anysql query "SELECT model, COUNT(*) FROM llm_responses GROUP BY model"
+anysql-sdk query "SELECT model, COUNT(*) FROM llm_responses GROUP BY model"
 
 # Show table row counts and basic stats
-anysql stats
+anysql-sdk stats
 
 # Query a specific database file
-anysql query "SELECT * FROM eval_results LIMIT 10" --db ./myproject.db
+anysql-sdk query "SELECT * FROM eval_results LIMIT 10" --db ./myproject.db
 ```
 
 ---
 
 ## Examples
 
-Three runnable demos are included in `examples/`. All auto-detect missing API keys and fall back to mock mode — no downloads required.
+Three runnable demos are included in `examples/` at the repo root. All auto-detect missing API keys and fall back to mock mode — no downloads required.
 
 | Demo | Dataset | Models |
 |------|---------|--------|
@@ -170,7 +173,7 @@ Three runnable demos are included in `examples/`. All auto-detect missing API ke
 | `realtime_combined_demo.py` | Reuters R8, 20 articles | All 4 models head-to-head |
 
 ```bash
-# Run combined demo (works without API keys)
+# Clone repo, then from repo root:
 python examples/realtime_combined_demo.py
 ```
 
@@ -182,10 +185,10 @@ python examples/realtime_combined_demo.py
 
 ```python
 import openai
-import anysql
+import anysql_sdk
 
-db = anysql.init()
-client = anysql.openai(openai.OpenAI())
+db = anysql_sdk.init()
+client = anysql_sdk.openai(db).wrap(openai.OpenAI())
 
 # All calls now logged automatically
 response = client.chat.completions.create(
@@ -198,10 +201,10 @@ response = client.chat.completions.create(
 
 ```python
 import anthropic
-import anysql
+import anysql_sdk
 
-db = anysql.init()
-client = anysql.claude(anthropic.Anthropic())
+db = anysql_sdk.init()
+client = anysql_sdk.claude(db).wrap(anthropic.Anthropic())
 
 response = client.messages.create(
     model="claude-sonnet-4-6",
@@ -213,7 +216,7 @@ response = client.messages.create(
 ### Agent Tracing
 
 ```python
-tracer = anysql.agent_tracer()
+tracer = anysql_sdk.agent_tracer(db)
 
 # Manual tracing
 tracer.trace_tool_call(
@@ -233,7 +236,7 @@ llm = ChatOpenAI(callbacks=[tracer])
 ### RAG Tracing
 
 ```python
-rag = anysql.rag_tracer()
+rag = anysql_sdk.rag_tracer(db)
 
 query_id = rag.before_retrieval(query="What is anySQL?")
 chunks = retriever.get_relevant_documents(query)
@@ -253,12 +256,13 @@ rag.record_eval(
 ## Development
 
 ```bash
-pip install -e ".[dev]"  # or: pip install anysql-sdk
+cd sdk
+pip install -e ".[dev]"
 
 pytest tests/ -v           # Run tests
 pytest tests/ --tb=short   # Short failure output
-ruff check anysql/         # Lint
-ruff format anysql/        # Format
+ruff check src/anysql_sdk/ # Lint
+ruff format src/anysql_sdk/ # Format
 ```
 
 ---
@@ -267,24 +271,26 @@ ruff format anysql/        # Format
 
 ```
 anysql/
-├── anysql/
-│   ├── __init__.py        # Public API surface
-│   ├── engine.py          # DuckDB engine + UC analytics methods
-│   ├── schema.py          # 6 PyArrow schemas
-│   ├── storage.py         # SQLite persistence
-│   ├── context.py         # @context decorator + context_scope()
-│   ├── cli.py             # CLI entry point
-│   ├── adapters/
-│   │   ├── openai.py      # OpenAI transparent proxy
-│   │   ├── claude.py      # Anthropic transparent proxy
-│   │   └── generic.py     # Generic JSON/dict adapter
-│   └── tracers/
-│       ├── agent.py       # AgentTracer (manual + LangChain)
-│       └── rag.py         # RAGTracer (LangChain/LlamaIndex/dict)
-├── tests/                 # 94 tests, all passing
-├── examples/              # 3 runnable demos
+├── sdk/                        ← this package
+│   ├── src/anysql_sdk/
+│   │   ├── __init__.py         # Public API surface
+│   │   ├── engine.py           # DuckDB engine + UC analytics methods
+│   │   ├── schema.py           # 6 PyArrow schemas
+│   │   ├── storage.py          # SQLite persistence
+│   │   ├── context.py          # context_scope() + get_context()
+│   │   ├── cli.py              # CLI entry point (anysql-sdk)
+│   │   ├── adapters/
+│   │   │   ├── openai.py       # OpenAI transparent proxy
+│   │   │   ├── claude.py       # Anthropic transparent proxy
+│   │   │   └── generic.py      # Generic JSON/dict adapter
+│   │   └── tracers/
+│   │       ├── agent.py        # AgentTracer (manual + LangChain)
+│   │       └── rag.py          # RAGTracer (LangChain/LlamaIndex/dict)
+│   └── tests/                  # 94 tests, all passing
+├── proxy/                      # see proxy/README.md
+├── examples/                   # 3 runnable demos (repo root)
 └── docs/
-    └── QUERIES.md         # Canonical SQL query library
+    └── QUERIES.md              # Canonical SQL query library
 ```
 
 ---
@@ -297,12 +303,8 @@ Apache 2.0
 
 <div align="center">
 
-**anySQL is an open-source SQL analytics engine for AI systems**
+**anySQL is an [OpenAstra](https://openastra.org) initiative**
 
-anySQL is managed by [OpenAstra](https://openastra.org) · [anysql.org](https://anysql.org)
-
-[PyPI](https://pypi.org/project/anysql-sdk/) · [GitHub](https://github.com/sadayamuthu/anySQL) · [Docs](https://docs.anysql.org)
+[anysql.org](https://anysql.org) · [PyPI](https://pypi.org/project/anysql-sdk/) · [GitHub](https://github.com/sadayamuthu/anySQL) · [Docs](https://docs.anysql.org)
 
 </div>
-
----
