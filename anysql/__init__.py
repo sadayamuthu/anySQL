@@ -33,7 +33,7 @@ from .tracers.rag      import RAGTracer
 from . import context as _ctx_module
 from .context import context, context_scope, get_context
 
-__version__ = "0.1.0"
+__version__ = "0.1.1"
 
 
 def init(
