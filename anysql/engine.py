@@ -79,7 +79,7 @@ class AnySQL:
     def count(self, table: str) -> int:
         view = self._table_to_view(table)
         self._refresh_views()
-        return self._conn.sql(f"SELECT COUNT(*) FROM {view}").fetchone()[0]
+        return self._conn.execute(f"SELECT COUNT(*) FROM {view}").fetchall()[0][0]
 
     def clear(self, table: Optional[str] = None) -> None:
         targets = [table] if table else TABLE_NAMES
