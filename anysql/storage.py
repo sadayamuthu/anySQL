@@ -6,13 +6,13 @@ Schema enforcement happens at the Arrow layer in engine.py, not here.
 
 import json
 import sqlite3
-from typing import Optional
+
 from .schema import TABLE_NAMES
 
 
 class Storage:
     def __init__(self, db_path: str = "anysql.db"):
-        self._in_memory = (db_path == ":memory:")
+        self._in_memory = db_path == ":memory:"
         self._db_path = db_path
         self._conn = sqlite3.connect(db_path, check_same_thread=False)
         self._init_tables()
@@ -36,7 +36,7 @@ class Storage:
         cur.execute(f"SELECT data FROM {sql_table}")
         return [json.loads(r[0]) for r in cur.fetchall()]
 
-    def delete(self, table: str, where: Optional[str] = None) -> int:
+    def delete(self, table: str, where: str | None = None) -> int:
         sql_table = self._sql_table(table)
         cur = self._conn.cursor()
         # NOTE: `where` is unparameterized — only pass internally with trusted values.

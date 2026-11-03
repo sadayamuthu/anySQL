@@ -2,8 +2,9 @@
 anysql/cli.py
 CLI entry point: anysql query "SELECT ..." / anysql stats
 """
-import sys
+
 import argparse
+import sys
 
 
 def main():
@@ -29,6 +30,7 @@ def main():
         sys.exit(0)
 
     import anysql
+
     db = anysql.init(args.db)
 
     if args.command == "query":
@@ -37,6 +39,7 @@ def main():
 
     elif args.command == "stats":
         from anysql.schema import TABLE_NAMES
+
         print("\nanySQL table row counts:")
         for table in TABLE_NAMES:
             count = db.count(table)
