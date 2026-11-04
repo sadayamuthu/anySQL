@@ -16,22 +16,21 @@ Usage:
     )
 """
 
-import uuid
 import time
+import uuid
 from datetime import datetime, timezone
-from typing import Optional
 
 ANTHROPIC_PRICING = {
-    "claude-opus-4-6":   {"input": 15.00, "output": 75.00},
-    "claude-sonnet-4-6": {"input": 3.00,  "output": 15.00},
-    "claude-haiku-4-5":  {"input": 0.80,  "output": 4.00},
-    "claude-3-5-sonnet": {"input": 3.00,  "output": 15.00},
-    "claude-3-5-haiku":  {"input": 0.80,  "output": 4.00},
-    "claude-3-opus":     {"input": 15.00, "output": 75.00},
+    "claude-opus-4-6": {"input": 15.00, "output": 75.00},
+    "claude-sonnet-4-6": {"input": 3.00, "output": 15.00},
+    "claude-haiku-4-5": {"input": 0.80, "output": 4.00},
+    "claude-3-5-sonnet": {"input": 3.00, "output": 15.00},
+    "claude-3-5-haiku": {"input": 0.80, "output": 4.00},
+    "claude-3-opus": {"input": 15.00, "output": 75.00},
 }
 
 
-def _calc_cost(model: str, input_tokens: int, output_tokens: int) -> Optional[float]:
+def _calc_cost(model: str, input_tokens: int, output_tokens: int) -> float | None:
     for key, pricing in ANTHROPIC_PRICING.items():
         if key in model or model.startswith(key):
             return (input_tokens * pricing["input"] + output_tokens * pricing["output"]) / 1_000_000
@@ -46,6 +45,7 @@ class _WrappedMessages:
 
     def create(self, **kwargs):
         from ..context import get_context
+
         start = time.monotonic()
         response = self._messages.create(**kwargs)
         latency_ms = int((time.monotonic() - start) * 1000)
@@ -55,38 +55,42 @@ class _WrappedMessages:
         messages = kwargs.get("messages", [])
         prompt = messages[-1]["content"] if messages else ""
         if isinstance(prompt, list):
-            prompt = " ".join(b.get("text","") if isinstance(b, dict) else str(b) for b in prompt)
+            prompt = " ".join(b.get("text", "") if isinstance(b, dict) else str(b) for b in prompt)
 
         usage = getattr(response, "usage", None)
         it = getattr(usage, "input_tokens", 0) or 0
         ot = getattr(usage, "output_tokens", 0) or 0
 
         content = "".join(
-            block.text for block in getattr(response, "content", [])
-            if hasattr(block, "text")
+            block.text for block in getattr(response, "content", []) if hasattr(block, "text")
         )
 
-        self._db.insert("llm.responses", [{
-            "response_id":        response.id or str(uuid.uuid4()),
-            "model":              model,
-            "model_version":      model,
-            "prompt":             prompt,
-            "content":            content,
-            "prompt_tokens":      it,
-            "completion_tokens":  ot,
-            "total_tokens":       it + ot,
-            "cost_usd":           _calc_cost(model, it, ot),
-            "latency_ms":         latency_ms,
-            "stop_reason":        getattr(response, "stop_reason", None),
-            "task_type":          self._task_type or ctx.get("tags", {}).get("task_type"),
-            "session_id":         ctx.get("session_id"),
-            "created_at":         datetime.now(timezone.utc).isoformat(),
-        }])
+        self._db.insert(
+            "llm.responses",
+            [
+                {
+                    "response_id": response.id or str(uuid.uuid4()),
+                    "model": model,
+                    "model_version": model,
+                    "prompt": prompt,
+                    "content": content,
+                    "prompt_tokens": it,
+                    "completion_tokens": ot,
+                    "total_tokens": it + ot,
+                    "cost_usd": _calc_cost(model, it, ot),
+                    "latency_ms": latency_ms,
+                    "stop_reason": getattr(response, "stop_reason", None),
+                    "task_type": self._task_type or ctx.get("tags", {}).get("task_type"),
+                    "session_id": ctx.get("session_id"),
+                    "created_at": datetime.now(timezone.utc).isoformat(),
+                }
+            ],
+        )
         return response
 
 
 class ClaudeAdapter:
-    def __init__(self, db, task_type: Optional[str] = None):
+    def __init__(self, db, task_type: str | None = None):
         self._db = db
         self._task_type = task_type
 

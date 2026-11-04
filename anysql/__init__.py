@@ -25,15 +25,15 @@ Quick start:
     db.rag_failure_modes()         # UC5: retrieval vs generation failures
 """
 
-from .engine  import AnySQL
-from .adapters.openai import OpenAIAdapter
-from .adapters.claude  import ClaudeAdapter
-from .tracers.agent    import AgentTracer
-from .tracers.rag      import RAGTracer
 from . import context as _ctx_module
+from .adapters.claude import ClaudeAdapter
+from .adapters.openai import OpenAIAdapter
 from .context import context, context_scope, get_context
+from .engine import AnySQL
+from .tracers.agent import AgentTracer
+from .tracers.rag import RAGTracer
 
-__version__ = "0.1.0"
+__version__ = "0.1.1"
 
 
 def init(
@@ -55,17 +55,17 @@ def init(
     return db
 
 
-def openai(db: AnySQL, task_type: str = None) -> OpenAIAdapter:
+def openai(db: AnySQL, task_type: str | None = None) -> OpenAIAdapter:
     """Return OpenAI adapter for auto-logging."""
     return OpenAIAdapter(db, task_type=task_type)
 
 
-def claude(db: AnySQL, task_type: str = None) -> ClaudeAdapter:
+def claude(db: AnySQL, task_type: str | None = None) -> ClaudeAdapter:
     """Return Claude adapter for auto-logging."""
     return ClaudeAdapter(db, task_type=task_type)
 
 
-def agent_tracer(db: AnySQL, session_id: str = None) -> AgentTracer:
+def agent_tracer(db: AnySQL, session_id: str | None = None) -> AgentTracer:
     """Return agent tracer for UC4 session debugging."""
     return AgentTracer(db, session_id=session_id)
 
@@ -76,7 +76,17 @@ def rag_tracer(db: AnySQL) -> RAGTracer:
 
 
 __all__ = [
-    "init", "openai", "claude", "agent_tracer", "rag_tracer",
-    "context", "context_scope", "get_context",
-    "AnySQL", "OpenAIAdapter", "ClaudeAdapter", "AgentTracer", "RAGTracer",
+    "AgentTracer",
+    "AnySQL",
+    "ClaudeAdapter",
+    "OpenAIAdapter",
+    "RAGTracer",
+    "agent_tracer",
+    "claude",
+    "context",
+    "context_scope",
+    "get_context",
+    "init",
+    "openai",
+    "rag_tracer",
 ]

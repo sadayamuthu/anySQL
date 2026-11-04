@@ -16,30 +16,31 @@ Usage:
     )
 """
 
-import uuid
 import time
+import uuid
 from datetime import datetime, timezone
-from typing import Optional
 
 # Pricing: USD per 1M tokens
 OPENAI_PRICING = {
-    "gpt-4o":       {"input": 2.50,  "output": 10.00},
-    "gpt-4o-mini":  {"input": 0.15,  "output": 0.60},
-    "gpt-4-turbo":  {"input": 10.00, "output": 30.00},
-    "gpt-4":        {"input": 30.00, "output": 60.00},
-    "gpt-3.5-turbo":{"input": 0.50,  "output": 1.50},
-    "o1":           {"input": 15.00, "output": 60.00},
-    "o1-mini":      {"input": 3.00,  "output": 12.00},
-    "o3-mini":      {"input": 1.10,  "output": 4.40},
+    "gpt-4o": {"input": 2.50, "output": 10.00},
+    "gpt-4o-mini": {"input": 0.15, "output": 0.60},
+    "gpt-4-turbo": {"input": 10.00, "output": 30.00},
+    "gpt-4": {"input": 30.00, "output": 60.00},
+    "gpt-3.5-turbo": {"input": 0.50, "output": 1.50},
+    "o1": {"input": 15.00, "output": 60.00},
+    "o1-mini": {"input": 3.00, "output": 12.00},
+    "o3-mini": {"input": 1.10, "output": 4.40},
 }
 
 
-def _calc_cost(model: str, prompt_tokens: int, completion_tokens: int) -> Optional[float]:
+def _calc_cost(model: str, prompt_tokens: int, completion_tokens: int) -> float | None:
     # Match by prefix to handle dated version suffixes like "gpt-4o-2024-11-20"
     # Sort by key length descending so more-specific keys (e.g. "gpt-4o-mini") match before shorter ones (e.g. "gpt-4o")
     for key, pricing in sorted(OPENAI_PRICING.items(), key=lambda x: -len(x[0])):
         if model.startswith(key):
-            return (prompt_tokens * pricing["input"] + completion_tokens * pricing["output"]) / 1_000_000
+            return (
+                prompt_tokens * pricing["input"] + completion_tokens * pricing["output"]
+            ) / 1_000_000
     return None
 
 
@@ -51,6 +52,7 @@ class _WrappedCompletions:
 
     def create(self, **kwargs):
         from ..context import get_context
+
         start = time.monotonic()
         response = self._completions.create(**kwargs)
         latency_ms = int((time.monotonic() - start) * 1000)
@@ -66,22 +68,27 @@ class _WrappedCompletions:
 
         choice = response.choices[0] if response.choices else None
 
-        self._db.insert("llm.responses", [{
-            "response_id":        response.id or str(uuid.uuid4()),
-            "model":              model,
-            "model_version":      getattr(response, "model", model),
-            "prompt":             prompt if isinstance(prompt, str) else str(prompt),
-            "content":            choice.message.content if choice else None,
-            "prompt_tokens":      pt,
-            "completion_tokens":  ct,
-            "total_tokens":       pt + ct,
-            "cost_usd":           _calc_cost(model, pt, ct),
-            "latency_ms":         latency_ms,
-            "stop_reason":        choice.finish_reason if choice else None,
-            "task_type":          self._task_type or ctx.get("tags", {}).get("task_type"),
-            "session_id":         ctx.get("session_id"),
-            "created_at":         datetime.now(timezone.utc).isoformat(),
-        }])
+        self._db.insert(
+            "llm.responses",
+            [
+                {
+                    "response_id": response.id or str(uuid.uuid4()),
+                    "model": model,
+                    "model_version": getattr(response, "model", model),
+                    "prompt": prompt if isinstance(prompt, str) else str(prompt),
+                    "content": choice.message.content if choice else None,
+                    "prompt_tokens": pt,
+                    "completion_tokens": ct,
+                    "total_tokens": pt + ct,
+                    "cost_usd": _calc_cost(model, pt, ct),
+                    "latency_ms": latency_ms,
+                    "stop_reason": choice.finish_reason if choice else None,
+                    "task_type": self._task_type or ctx.get("tags", {}).get("task_type"),
+                    "session_id": ctx.get("session_id"),
+                    "created_at": datetime.now(timezone.utc).isoformat(),
+                }
+            ],
+        )
         return response
 
 
@@ -91,7 +98,7 @@ class _WrappedChat:
 
 
 class OpenAIAdapter:
-    def __init__(self, db, task_type: Optional[str] = None):
+    def __init__(self, db, task_type: str | None = None):
         self._db = db
         self._task_type = task_type
 

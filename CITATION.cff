@@ -1,0 +1,28 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it using these metadata."
+type: software
+title: "anySQL: SQL analytics for AI systems"
+abstract: >-
+  anySQL is an open-source Python library for querying LLM responses, agent
+  traces and RAG pipelines with standard SQL. Wrappers for OpenAI and
+  Anthropic clients, an agent tracer and a RAG tracer normalise telemetry into
+  six canonical PyArrow tables, which are held in memory, optionally persisted
+  to SQLite, and queried through DuckDB. Built-in queries cover multi-model
+  comparison, prompt regression detection, cost attribution, agent debugging,
+  and RAG forensics, where a shared query id joins retrieved chunks to eval
+  results to separate retrieval failures from generation failures.
+authors:
+  - family-names: Sadayamuthu
+    given-names: Karthikeyan
+    orcid: "https://orcid.org/0009-0008-3539-6048"
+version: 0.1.1
+date-released: "2026-11-03"
+license: Apache-2.0
+repository-code: "https://github.com/sadayamuthu/anySQL"
+url: "https://anysql.org"
+keywords:
+  - SQL
+  - DuckDB
+  - LLM observability
+  - agent traces
+  - RAG

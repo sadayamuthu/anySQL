@@ -6,10 +6,10 @@
 
 <p>From vibes to queries.</p>
 
-[![CI](https://img.shields.io/badge/CI-passing-brightgreen?style=flat-square)](https://github.com/sadayamuthu/anySQL/actions)
+[![CI](https://img.shields.io/github/actions/workflow/status/sadayamuthu/anySQL/pr-check.yml?event=pull_request&label=CI&style=flat-square)](https://github.com/sadayamuthu/anySQL/actions/workflows/pr-check.yml)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue?style=flat-square)](https://www.python.org/downloads/)
-[![License: Apache 2.0](https://img.shields.io/badge/License-Apache%202.0-green?style=flat-square)](LICENSE)
-[![PyPI](https://img.shields.io/badge/PyPI-anysql--sdk-orange?style=flat-square)](https://pypi.org/project/anysql-sdk/)
+[![License](https://img.shields.io/github/license/sadayamuthu/anySQL?style=flat-square)](LICENSE)
+[![PyPI](https://img.shields.io/pypi/v/anysql-sdk?style=flat-square)](https://pypi.org/project/anysql-sdk/)
 
 ---
 
@@ -45,14 +45,14 @@ import anysql
 # Initialize (in-memory by default, or pass a file path for persistence)
 db = anysql.init()
 
-# Wrap your OpenAI client — all calls are auto-logged
-client = anysql.openai(openai_client)
+# Wrap your OpenAI client — chat.completions.create calls are auto-logged
+client = anysql.openai(db).wrap(openai_client)
 
-# Wrap your Anthropic client
-client = anysql.claude(anthropic_client)
+# Wrap your Anthropic client — messages.create calls are auto-logged
+client = anysql.claude(db).wrap(anthropic_client)
 
 # Tag pipeline runs for cost attribution
-@anysql.context(feature="search", version="v2")
+@anysql.context(feature="search", tags={"version": "v2"})
 def run_search(query):
     ...
 
@@ -76,7 +76,7 @@ User Code
     │
     ├── @anysql.context(feature="x")     ← Python contextvars, sync+async safe
     ├── OpenAI/Claude wrapped client      ← transparent proxy, one-line swap
-    ├── AgentTracer (LangChain callback)  ← manual or callback-based
+    ├── AgentTracer                       ← manual tool-call and step tracing
     └── RAGTracer.after_retrieval()       ← auto-detects LangChain/LlamaIndex/dict
               │
               ▼ insert()
@@ -94,7 +94,7 @@ User Code
 **Key design decisions:**
 - Schema enforcement at Arrow layer — SQLite stores raw JSON, validation happens at query time
 - Dot-namespace tables (`llm.responses`) map to flat SQL view names (`llm_responses`)
-- Contextvars for thread-safe and async-safe tagging — no manual pass-through required
+- Contextvars for async-safe tagging — no manual pass-through required within a task (new threads start with an empty context unless you copy it with `contextvars.copy_context()`)
 
 ---
 
@@ -147,10 +147,10 @@ pip install "anysql-sdk[all]"         # everything
 ## CLI Usage
 
 ```bash
-# Run a SQL query against a persisted database
+# Run a SQL query against a persisted database (default: ./anysql.db)
 anysql query "SELECT model, COUNT(*) FROM llm_responses GROUP BY model"
 
-# Show table row counts and basic stats
+# Show row counts for all tables
 anysql stats
 
 # Query a specific database file
@@ -161,13 +161,13 @@ anysql query "SELECT * FROM eval_results LIMIT 10" --db ./myproject.db
 
 ## Examples
 
-Three runnable demos are included in `examples/`. All auto-detect missing API keys and fall back to mock mode — no downloads required.
+Three runnable demos are included in `examples/`. All auto-detect missing API keys and fall back to mock mode. The articles are short samples embedded in each script, written in the style of each dataset's topics — no downloads required.
 
-| Demo | Dataset | Models |
+| Demo | Embedded sample articles | Models |
 |------|---------|--------|
-| `realtime_openai_demo.py` | BBC News (2004–05), 12 articles | `gpt-4o`, `gpt-4o-mini` |
-| `realtime_claude_demo.py` | AG News, 15 articles | `claude-sonnet-4-6`, `claude-haiku-4-5` |
-| `realtime_combined_demo.py` | Reuters R8, 20 articles | All 4 models head-to-head |
+| `realtime_openai_demo.py` | 12, BBC News-style topics | `gpt-4o`, `gpt-4o-mini` |
+| `realtime_claude_demo.py` | 15, AG News-style topics | `claude-sonnet-4-6`, `claude-haiku-4-5` |
+| `realtime_combined_demo.py` | 20, Reuters R8-style topics | All 4 models head-to-head |
 
 ```bash
 # Run combined demo (works without API keys)
@@ -185,9 +185,9 @@ import openai
 import anysql
 
 db = anysql.init()
-client = anysql.openai(openai.OpenAI())
+client = anysql.openai(db).wrap(openai.OpenAI())
 
-# All calls now logged automatically
+# chat.completions.create calls are now logged automatically
 response = client.chat.completions.create(
     model="gpt-4o",
     messages=[{"role": "user", "content": "Summarize this article..."}]
@@ -201,7 +201,7 @@ import anthropic
 import anysql
 
 db = anysql.init()
-client = anysql.claude(anthropic.Anthropic())
+client = anysql.claude(db).wrap(anthropic.Anthropic())
 
 response = client.messages.create(
     model="claude-sonnet-4-6",
@@ -213,38 +213,37 @@ response = client.messages.create(
 ### Agent Tracing
 
 ```python
-tracer = anysql.agent_tracer()
+tracer = anysql.agent_tracer(db, session_id="sess-001")
 
 # Manual tracing
 tracer.trace_tool_call(
-    session_id="sess-001",
-    tool_name="web_search",
-    input_data={"query": "latest news"},
-    output_data={"results": [...]},
-    success=True,
+    "web_search",
+    input={"query": "latest news"},
+    output={"results": [...]},
+    status="success",
     latency_ms=320,
 )
-
-# LangChain callback (automatic)
-from langchain_openai import ChatOpenAI
-llm = ChatOpenAI(callbacks=[tracer])
+tracer.trace_step("llm_call", description="Summarize results")
 ```
+
+`AgentTracer` also has `on_tool_start`, `on_tool_end`, `on_tool_error`, `on_agent_action` and `on_agent_finish` methods named after LangChain's callback hooks, which you can call from your own framework code. It does not subclass LangChain's `BaseCallbackHandler`, so passing it in `callbacks=[...]` to LangChain does not work in this release.
 
 ### RAG Tracing
 
 ```python
-rag = anysql.rag_tracer()
+rag = anysql.rag_tracer(db)
 
-query_id = rag.before_retrieval(query="What is anySQL?")
-chunks = retriever.get_relevant_documents(query)
+query = "What is anySQL?"
+query_id = rag.before_retrieval(query)
+chunks = vectorstore.similarity_search_with_score(query)  # (doc, score) tuples
 rag.after_retrieval(query_id=query_id, chunks=chunks)
 
-# Record eval result with cross-layer join key
+# Record eval result with cross-layer join key (passed = score >= 0.7)
 rag.record_eval(
     query_id=query_id,
     score=0.92,
-    passed=True,
-    eval_type="faithfulness",
+    actual=answer,
+    factuality=0.95,
 )
 ```
 
@@ -253,12 +252,11 @@ rag.record_eval(
 ## Development
 
 ```bash
-pip install -e ".[dev]"  # or: pip install anysql-sdk
+pip install -e ".[dev]"
 
-pytest tests/ -v           # Run tests
-pytest tests/ --tb=short   # Short failure output
-ruff check anysql/         # Lint
-ruff format anysql/        # Format
+pytest tests/ -v --tb=short   # Run tests
+ruff check anysql/            # Lint
+ruff format --check anysql/   # Check formatting (ruff format anysql/ to fix)
 ```
 
 ---
@@ -266,7 +264,7 @@ ruff format anysql/        # Format
 ## Repository Structure
 
 ```
-anysql/
+anySQL/
 ├── anysql/
 │   ├── __init__.py        # Public API surface
 │   ├── engine.py          # DuckDB engine + UC analytics methods
@@ -279,9 +277,9 @@ anysql/
 │   │   ├── claude.py      # Anthropic transparent proxy
 │   │   └── generic.py     # Generic JSON/dict adapter
 │   └── tracers/
-│       ├── agent.py       # AgentTracer (manual + LangChain)
+│       ├── agent.py       # AgentTracer (manual tracing + LangChain-style hooks)
 │       └── rag.py         # RAGTracer (LangChain/LlamaIndex/dict)
-├── tests/                 # 94 tests, all passing
+├── tests/                 # 94 pytest tests
 ├── examples/              # 3 runnable demos
 └── docs/
     └── QUERIES.md         # Canonical SQL query library
@@ -289,9 +287,21 @@ anysql/
 
 ---
 
+## Contributing
+
+Bug reports, adapters and fixes are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md) for the development setup, the checks CI runs, and how to add an adapter.
+
+---
+
+## Security
+
+Please report vulnerabilities privately through [GitHub security advisories](https://github.com/sadayamuthu/anySQL/security/advisories/new), not in a public issue. See [SECURITY.md](SECURITY.md) for what to include and what's in scope.
+
+---
+
 ## License
 
-Apache 2.0
+[Apache License 2.0](LICENSE)
 
 ---
 

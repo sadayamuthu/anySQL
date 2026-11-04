@@ -4,11 +4,11 @@ DuckDB-powered SQL engine over canonical Arrow tables.
 """
 
 import warnings
-import duckdb
-import pyarrow as pa
-import pandas as pd
 from datetime import datetime
-from typing import Optional, Union
+
+import duckdb
+import pandas as pd
+import pyarrow as pa
 
 from .schema import SCHEMAS, TABLE_NAMES
 from .storage import Storage
@@ -48,7 +48,7 @@ class AnySQL:
 
     # ── Public API ─────────────────────────────────────────────────────────────
 
-    def query(self, sql: str, as_df: bool = True) -> Union[pd.DataFrame, duckdb.DuckDBPyRelation]:
+    def query(self, sql: str, as_df: bool = True) -> pd.DataFrame | duckdb.DuckDBPyRelation:
         """
         Execute SQL over anySQL tables.
 
@@ -79,9 +79,9 @@ class AnySQL:
     def count(self, table: str) -> int:
         view = self._table_to_view(table)
         self._refresh_views()
-        return self._conn.sql(f"SELECT COUNT(*) FROM {view}").fetchone()[0]
+        return self._conn.execute(f"SELECT COUNT(*) FROM {view}").fetchall()[0][0]
 
-    def clear(self, table: Optional[str] = None) -> None:
+    def clear(self, table: str | None = None) -> None:
         targets = [table] if table else TABLE_NAMES
         for t in targets:
             self._buffers[t] = []
@@ -254,7 +254,8 @@ class AnySQL:
     def session_diff(self, session_a: str, session_b: str) -> pd.DataFrame:
         """Where two sessions diverged — success vs failure path comparison."""
         self._refresh_views()
-        rel = self._conn.execute("""
+        rel = self._conn.execute(
+            """
             SELECT a.step_order,
                    a.tool_name AS session_a_tool,
                    b.tool_name AS session_b_tool
@@ -264,7 +265,9 @@ class AnySQL:
               AND b.session_id = ?
               AND a.tool_name != b.tool_name
             ORDER BY a.step_order
-        """, [session_a, session_b])
+        """,
+            [session_a, session_b],
+        )
         return rel.df()
 
     def human_intervention_points(self) -> pd.DataFrame:
@@ -374,7 +377,7 @@ class AnySQL:
                 self._arrow_tables[table_name] = arrow_table
                 view = self._table_to_view(table_name)
                 self._conn.register(view, arrow_table)
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001 - one bad table must not stop the others loading
                 warnings.warn(f"[anySQL] {table_name}: {e}", stacklevel=2)
 
     @staticmethod

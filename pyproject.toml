@@ -4,10 +4,11 @@ build-backend = "hatchling.build"
 
 [project]
 name = "anysql-sdk"
-version = "0.1.0"
+version = "0.1.1"
 description = "SQL analytics for AI systems — query LLM responses, agent traces, and RAG pipelines like a database"
 readme = "README.md"
 license = { text = "Apache-2.0" }
+authors = [{ name = "Karthikeyan Sadayamuthu" }]
 requires-python = ">=3.10"
 keywords = ["llm", "observability", "sql", "duckdb", "ai", "agents", "rag", "eval", "openai", "anthropic"]
 classifiers = [
@@ -30,12 +31,13 @@ openai    = ["openai>=1.0.0"]
 anthropic = ["anthropic>=0.25.0"]
 langchain = ["langchain>=0.2.0"]
 all = ["openai>=1.0.0", "anthropic>=0.25.0", "langchain>=0.2.0"]
-dev = ["pytest>=8.0.0", "pytest-asyncio", "black", "ruff"]
+dev = ["pytest>=8.0.0", "pytest-asyncio", "black", "ruff==0.17.3"]
 
 [project.urls]
 Homepage      = "https://anysql.org"
 Repository    = "https://github.com/sadayamuthu/anySQL"
 Documentation = "https://docs.anysql.org"
+Issues        = "https://github.com/sadayamuthu/anySQL/issues"
 
 [project.scripts]
 anysql = "anysql.cli:main"
