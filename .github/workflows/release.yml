@@ -16,7 +16,7 @@ jobs:
       is_new: ${{ steps.check.outputs.is_new }}
       version: ${{ steps.check.outputs.version }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0  # required: git tag -l needs full tag history
       - name: Check if version tag exists
@@ -47,8 +47,8 @@ jobs:
     if: needs.check-version.outputs.is_new == 'true'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.12"
       - name: Install build tools
@@ -56,7 +56,7 @@ jobs:
       - name: Build wheel and sdist
         run: python -m build
       - name: Upload dist artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: dist
           path: dist/
@@ -71,7 +71,7 @@ jobs:
       id-token: write
     steps:
       - name: Download dist artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: dist
           path: dist/
@@ -87,7 +87,7 @@ jobs:
       contents: write
     steps:
       - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           tag_name: v${{ needs.check-version.outputs.version }}
           name: anySQL v${{ needs.check-version.outputs.version }}
