@@ -22,14 +22,23 @@ Usage:
 import uuid
 from datetime import datetime, timezone
 
+from ..context import get_context
+
 
 class RAGTracer:
     def __init__(self, db):
         self._db = db
+        self._query_sessions: dict[str, str | None] = {}
 
     def before_retrieval(self, query: str, session_id: str | None = None) -> str:
-        """Returns a query_id — pass to after_retrieval() and record_eval()."""
-        return str(uuid.uuid4())
+        """Returns a query_id — pass to after_retrieval() and record_eval().
+
+        The session (explicit, else the @anysql.context session) is remembered for
+        after_retrieval(), so retrieved chunks join to the session's tool calls.
+        """
+        query_id = str(uuid.uuid4())
+        self._query_sessions[query_id] = session_id or get_context().get("session_id")
+        return query_id
 
     def after_retrieval(
         self,
@@ -44,6 +53,11 @@ class RAGTracer:
         Auto-detects: LangChain (doc, score) tuples, LlamaIndex NodeWithScore, plain dicts.
         Pass normalize_fn(chunk) -> dict for custom formats.
         """
+        session_id = (
+            session_id
+            or self._query_sessions.pop(query_id, None)
+            or get_context().get("session_id")
+        )
         records = []
         for rank, chunk in enumerate(chunks):
             n = self._normalize(chunk, normalize_fn)
