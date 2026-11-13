@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "anysql-sdk"
-version = "0.1.1"
+version = "0.2.0"
 description = "SQL analytics for AI systems — query LLM responses, agent traces, and RAG pipelines like a database"
 readme = "README.md"
 license = { text = "Apache-2.0" }

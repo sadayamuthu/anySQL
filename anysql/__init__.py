@@ -33,7 +33,7 @@ from .engine import AnySQL
 from .tracers.agent import AgentTracer
 from .tracers.rag import RAGTracer
 
-__version__ = "0.1.1"
+__version__ = "0.2.0"
 
 
 def init(
