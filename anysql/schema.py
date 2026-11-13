@@ -26,6 +26,7 @@ LLM_RESPONSES_SCHEMA = pa.schema(
             "task_type", pa.string(), nullable=True
         ),  # "summarization","code","classification"
         pa.field("session_id", pa.string(), nullable=True),
+        pa.field("step_order", pa.int32(), nullable=True),  # shared per-session sequence
         pa.field("created_at", pa.timestamp("ms"), nullable=False),
     ]
 )
@@ -114,6 +115,7 @@ RAG_CHUNKS_SCHEMA = pa.schema(
         pa.field("retrieval_id", pa.string(), nullable=False),
         pa.field("query_id", pa.string(), nullable=False),  # links to eval.results.query_id
         pa.field("session_id", pa.string(), nullable=True),
+        pa.field("step_order", pa.int32(), nullable=True),  # shared per-session sequence
         pa.field("chunk_id", pa.string(), nullable=False),
         pa.field("source_doc", pa.string(), nullable=True),
         pa.field("chunk_text", pa.string(), nullable=True),
@@ -136,3 +138,7 @@ SCHEMAS = {
 }
 
 TABLE_NAMES = list(SCHEMAS.keys())
+
+# Tables whose rows share one step sequence per session_id, so the order of model
+# calls, retrievals and tool calls within a session can be recovered with SQL.
+SEQUENCED_TABLES = ("llm.responses", "rag.chunks", "agent.tool_calls", "agent.trace")

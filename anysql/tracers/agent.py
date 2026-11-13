@@ -23,16 +23,42 @@ from typing import Any
 class AgentTracer:
     def __init__(self, db, session_id: str | None = None):
         self._db = db
-        self.session_id = session_id or str(uuid.uuid4())
-        self._step_counter = 0
+        self._explicit_session = session_id
+        self._fallback_session = str(uuid.uuid4())
         self._pending_tool = {}
+
+    @property
+    def session_id(self) -> str:
+        """Explicit session, else the @anysql.context session, else a per-tracer UUID.
+
+        Reading the context session lets tool calls share a session_id (and so a step
+        sequence) with model calls and retrievals made in the same scope.
+        """
+        if self._explicit_session:
+            return self._explicit_session
+        from ..context import get_context
+
+        return get_context().get("session_id") or self._fallback_session
+
+    @session_id.setter
+    def session_id(self, value: str | None) -> None:
+        self._explicit_session = value
 
     @contextmanager
     def session(self, session_id: str | None = None):
         if session_id:
             self.session_id = session_id
-        self._step_counter = 0
         yield self
+
+    def _next_step(self) -> int:
+        return self._db.next_step(self.session_id)
+
+    def trace_user_task(self, task: str) -> str:
+        """Record the user's original request, untruncated, as a 'user_task' step.
+
+        Forensic queries compare later tool calls against it ("did the user ask for this?").
+        """
+        return self.trace_step("user_task", description="User task", input_summary=task)
 
     def trace_tool_call(
         self,
@@ -44,7 +70,7 @@ class AgentTracer:
         latency_ms: int | None = None,
         human_override: bool = False,
     ) -> str:
-        self._step_counter += 1
+        step = self._next_step()
         call_id = str(uuid.uuid4())
         self._db.insert(
             "agent.tool_calls",
@@ -52,7 +78,7 @@ class AgentTracer:
                 {
                     "call_id": call_id,
                     "session_id": self.session_id,
-                    "step_order": self._step_counter,
+                    "step_order": step,
                     "tool_name": tool_name,
                     "tool_input": json.dumps(input, default=str) if input is not None else None,
                     "tool_output": json.dumps(output, default=str) if output is not None else None,
@@ -75,7 +101,7 @@ class AgentTracer:
         human_override: bool = False,
         time_to_intervention_ms: int | None = None,
     ) -> str:
-        self._step_counter += 1
+        step = self._next_step()
         trace_id = str(uuid.uuid4())
         self._db.insert(
             "agent.trace",
@@ -83,7 +109,7 @@ class AgentTracer:
                 {
                     "trace_id": trace_id,
                     "session_id": self.session_id,
-                    "step_order": self._step_counter,
+                    "step_order": step,
                     "step_type": step_type,
                     "step_description": description,
                     "input_summary": input_summary,
@@ -102,9 +128,8 @@ class AgentTracer:
             "tool_name": serialized.get("name", "unknown"),
             "input": input_str,
             "start": time.monotonic(),
-            "step_order": self._step_counter + 1,
+            "step_order": self._next_step(),
         }
-        self._step_counter += 1
 
     def on_tool_end(self, output: str, **kwargs) -> None:
         p = self._pending_tool
@@ -115,7 +140,7 @@ class AgentTracer:
                 {
                     "call_id": str(uuid.uuid4()),
                     "session_id": self.session_id,
-                    "step_order": p.get("step_order", self._step_counter),
+                    "step_order": p.get("step_order") or self._next_step(),
                     "tool_name": p.get("tool_name", "unknown"),
                     "tool_input": p.get("input"),
                     "tool_output": output,
@@ -137,7 +162,7 @@ class AgentTracer:
                 {
                     "call_id": str(uuid.uuid4()),
                     "session_id": self.session_id,
-                    "step_order": p.get("step_order", self._step_counter),
+                    "step_order": p.get("step_order") or self._next_step(),
                     "tool_name": p.get("tool_name", "unknown"),
                     "tool_input": p.get("input"),
                     "tool_output": None,

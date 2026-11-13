@@ -3,6 +3,7 @@ anysql/engine.py
 DuckDB-powered SQL engine over canonical Arrow tables.
 """
 
+import threading
 import warnings
 from datetime import datetime
 
@@ -10,7 +11,7 @@ import duckdb
 import pandas as pd
 import pyarrow as pa
 
-from .schema import SCHEMAS, TABLE_NAMES
+from .schema import SCHEMAS, SEQUENCED_TABLES, TABLE_NAMES
 from .storage import Storage
 
 # Pre-computed map of table -> set of timestamp field names for fast coercion
@@ -43,6 +44,8 @@ class AnySQL:
         self._echo = echo
         self._buffers: dict[str, list[dict]] = {t: [] for t in TABLE_NAMES}
         self._arrow_tables: dict[str, pa.Table] = {}
+        self._step_counters: dict[str, int] = {}
+        self._step_lock = threading.Lock()
         self._init_tables()
         self._load_persisted()
 
@@ -67,11 +70,27 @@ class AnySQL:
         return rel.df() if as_df else rel
 
     def insert(self, table: str, records: list[dict]) -> None:
-        """Insert records into a canonical table. Persists to SQLite."""
+        """Insert records into a canonical table. Persists to SQLite.
+
+        For sequenced tables, a record with a session_id but no step_order gets the
+        session's next step. All such records in one call share that step, so the
+        chunks of one retrieval are one step.
+        """
         if table not in TABLE_NAMES:
             raise ValueError(f"Unknown table '{table}'. Valid: {TABLE_NAMES}")
+        if table in SEQUENCED_TABLES:
+            records = self._assign_steps(records)
         self._buffers[table].extend(records)
         self._storage.save(table, records)
+
+    def next_step(self, session_id: str | None) -> int | None:
+        """Reserve the next step number in a session's shared sequence."""
+        if session_id is None:
+            return None
+        with self._step_lock:
+            n = self._step_counters.get(session_id, 0) + 1
+            self._step_counters[session_id] = n
+            return n
 
     def tables(self) -> list[str]:
         return TABLE_NAMES
@@ -252,21 +271,33 @@ class AnySQL:
         """)
 
     def session_diff(self, session_a: str, session_b: str) -> pd.DataFrame:
-        """Where two sessions diverged — success vs failure path comparison."""
+        """Where two sessions diverged — success vs failure path comparison.
+
+        Compares the n-th tool call of each session. step_order is shared with other
+        layers, so it has gaps; the call index does not.
+        """
         self._refresh_views()
         rel = self._conn.execute(
             """
-            SELECT a.step_order,
+            WITH seq AS (
+                SELECT session_id, tool_name,
+                       ROW_NUMBER() OVER (
+                           PARTITION BY session_id ORDER BY step_order
+                       ) AS call_index
+                FROM agent_tool_calls
+                WHERE session_id IN (?, ?)
+            )
+            SELECT a.call_index AS step_order,
                    a.tool_name AS session_a_tool,
                    b.tool_name AS session_b_tool
-            FROM agent_tool_calls a
-            JOIN agent_tool_calls b ON a.step_order = b.step_order
+            FROM seq a
+            JOIN seq b ON a.call_index = b.call_index
             WHERE a.session_id = ?
               AND b.session_id = ?
               AND a.tool_name != b.tool_name
-            ORDER BY a.step_order
+            ORDER BY a.call_index
         """,
-            [session_a, session_b],
+            [session_a, session_b, session_a, session_b],
         )
         return rel.df()
 
@@ -363,7 +394,34 @@ class AnySQL:
             records = self._storage.load(table)
             if records:
                 self._buffers[table].extend(records)
+                if table in SEQUENCED_TABLES:
+                    self._observe_steps(records)
         self._refresh_views()
+
+    def _assign_steps(self, records: list[dict]) -> list[dict]:
+        self._observe_steps(records)
+        steps: dict[str, int | None] = {}
+        out = []
+        for r in records:
+            sid = r.get("session_id")
+            if sid is not None and r.get("step_order") is None:
+                if sid not in steps:
+                    steps[sid] = self.next_step(sid)
+                r = {**r, "step_order": steps[sid]}
+            out.append(r)
+        return out
+
+    def _observe_steps(self, records: list[dict]) -> None:
+        """Advance counters past any explicit step numbers so new steps never collide."""
+        with self._step_lock:
+            for r in records:
+                sid, step = r.get("session_id"), r.get("step_order")
+                if (
+                    sid is not None
+                    and isinstance(step, int)
+                    and step > self._step_counters.get(sid, 0)
+                ):
+                    self._step_counters[sid] = step
 
     def _refresh_views(self) -> None:
         for table_name, schema in SCHEMAS.items():
